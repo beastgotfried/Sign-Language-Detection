@@ -12,9 +12,9 @@ Phase 1: Data Collection
 
 [. ] MediaPipe Integration: Overlay MediaPipe's hand tracking landmarks on the live video feed.
 
-[ ] Sequence Capture Logic: Write a function that triggers data collection (e.g., pressing "C" on the keyboard) to record a set number of frames (like 30 frames) for a specific sign.
+[. ] Sequence Capture Logic: Write a function that triggers data collection (e.g., pressing "C" on the keyboard) to record a set number of frames (like 30 frames) for a specific sign.
 
-[ ] Data Serialization: Save the raw coordinate data and their corresponding labels into a collected_data.pickle file.
+[ .] Data Serialization: Save the raw coordinate data and their corresponding labels into a collected_data.pickle file.
 
 Phase 2: Feature Extraction
 [ ] Math Utilities Setup: In math_utils.py, write helper functions for Euclidean distance and angle calculations using NumPy.
