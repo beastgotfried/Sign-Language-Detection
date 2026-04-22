@@ -18,15 +18,16 @@ labels=dataset['labels']
 processed_data=[]
 
 
+
 def extract_features(frame_landmarks):
     features=[]
     points=[]
-    
+
     for i in range(0,len(frame_landmarks),3):
         points.append([frame_landmarks[i],frame_landmarks[i+1],frame_landmarks[i+2]])
-        
-        if len(points)!=21:
-            return [0.0]*29
+
+    if len(points)!=21:
+        return [0.0]*23
 
     wrist= points[0]
     
@@ -35,11 +36,12 @@ def extract_features(frame_landmarks):
     features.append(distance(points[12],points[16]))
     features.append(distance(points[16],points[20]))
     
-    thumb_mid=np.mean(points[2],points[3],axis=0)
-    index_mid=np.mean(points[6],points[7],axis=0)
-    middle_mid=np.mean(points[10],points[11],axis=0)
-    ring_mid=np.mean(points[14],points[15],axis=0)
-    little_mid=np.mean(points[18],points[19],axis=0)
+    thumb_mid=np.mean([points[2],points[3]],axis=0)
+    index_mid=np.mean([points[6],points[7]],axis=0)
+    middle_mid=np.mean([points[10],points[11]],axis=0)
+    ring_mid=np.mean([points[14],points[15]],axis=0)
+    little_mid=np.mean([points[18],points[19]],axis=0)
+    
     #angles intra finger
     features.append(angle(points[1],thumb_mid,points[4]))
     features.append(angle(points[5],index_mid,points[8]))
@@ -80,6 +82,8 @@ processed_data={'data': processed_data, 'labels': labels}
 
 with open(output_pickle, 'wb') as f:
     pickle.dump(processed_data, f)
+
+
     
 print("Extraction complete")
     
