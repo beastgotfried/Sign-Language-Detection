@@ -4,4 +4,4 @@ __pycache__/
 data/*.pickle
 models/*.pkl
 
-/signlanguage/
+signlanguage/

@@ -113,3 +113,6 @@ pickle_path=os.path.join(DATA_DIR,'collected_data.pickle')
 with open(pickle_path,'wb') as f:
     pickle.dump(dataset,f)
     
+
+
+#phase 1 complete
