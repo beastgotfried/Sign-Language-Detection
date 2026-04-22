@@ -83,11 +83,3 @@ with open(output_pickle, 'wb') as f:
     
 print("Extraction complete")
     
-    
-    
-    
-    
-    
-    
-    
-                      

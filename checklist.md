@@ -51,3 +51,6 @@ Phase 5: Polish & Interface
 [ ] UI Rendering: Given your frontend and design background, upgrade the standard OpenCV bounding box. Add custom UI overlays, smooth text rendering, or a status dashboard showing model confidence directly on the video feed.
 
 [ ] Exception Handling: Add logic to handle edge cases, like when no hands are detected or when only one hand is visible for a two-handed sign.
+
+
+#ive kept the data to be hello for wave, clock it for second, fist closing opening for no
