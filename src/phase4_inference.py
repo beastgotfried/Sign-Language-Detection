@@ -116,5 +116,80 @@ def predict_sign(model,encoder,feature_vector):
             return "", stable_conf
         
         
+def draw_overlay(frame,stable_label,stable_conf,hand_detected):
+    h,w,_= frame.shape
+    
+    base_text= "Welcome" if hand_detected else "Hand: NO"
+    pred_text= f"Prediction: {stable_label if stable_label else '....'}
+    conf_text= f"confidence: {stable_conf: .2f}"
+    help_text="Q: Quit"
+    
+    cv2.putText(frame,base_text, (20,35),cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),2)
+    cv2.putText(frame,pred_text, (20,65),cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),2)
+    cv2.putText(frame,conf_text, (20,95),cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),2)
+    cv2.putText(frame,help_text, (20,115),cv2.FONT_HERSHEY_COMPLEX,0.7,(0,255,0),2)
+    
+    
         
-        
+def main():
+    model,encoder= load_artifacts()
+    
+    mp_hands= mp.solutions.hands
+    mp_drawing = mp.solutions.drawing_utils 
+    
+    cap= cv2.VideoCapture(0)
+    
+    history_labels= deque(maxlen=SMOOTH_WINDOW)
+    history_conf= deque(maxlen=SMOOTH_WINDOW)
+    prev_t= time.time()
+    
+    with mp_hands.HANDS(
+        static_image_model= False,
+        max_num_hands=1,
+        min_detection_confidence=0.3,
+        min_tracking_confidence= 0.3,
+        ) as hands:
+            while True:
+                ret,frame= cap.read()
+                if not ret:
+                    break
+                    
+                frame= cv2.flip(frame,1)
+                rgb = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+                results= hands.process(rgb)
+                
+                hand_detected= False
+                stable_label = ""
+                stable_conf= 0.0
+                
+                if results.multi_hand_landmarks:
+                    hand_detected = True 
+                    
+                hand_landmark= results.multi_hand_landmarks[0]
+                
+                mp_drawing.draw_landmarks(
+                    frame,
+                    hand_landmarks,
+                    mp_hands.HAND_CONNECTIONS
+                )
+                
+                frame_data= []
+                for lm in hand_landmarks.landmark:
+                    frame_data.extend([lm.x,lm.y,lm.z])
+                    freature_vector= extract_features_live(frame_data)
+                    
+                    if len(feature_vector) == 23:
+                    current_label, current_conf = predict_sign(model, encoder, feature_vector)
+                    stable_label, stable_conf = smooth_prediction(
+                        history_labels, history_conf, current_label, current_conf
+                    )
+                    
+                    frame= draw_overlay(frame,stable_label,stable_conf,hand_detected)
+                    cv2.imshow('Sign Language',frame)
+                    
+                    key= cv2.waitKey(1)
+                    if key==ord('q'):
+                        break
+                    
+cap.release()
+cv2.destroyAllWindows
