@@ -26,7 +26,7 @@ def extract_features(frame_landmarks):
     for i in range(0,len(frame_landmarks),3):
         points.append([frame_landmarks[i],frame_landmarks[i+1],frame_landmarks[i+2]])
         
-    if len(points)!=23:
+    if len(points)!=21:
         return [0.0]*23
 
     wrist= points[0]

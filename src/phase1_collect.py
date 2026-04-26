@@ -8,12 +8,12 @@ mp_hands = mp.solutions.hands #calling the hand position model
 mp_drawing = mp.solutions.drawing_utils #drawing utility for marking connections and landmarks
 mp_drawing_styles = mp.solutions.drawing_styles #calling the existing and modifiable design styles
 
-neon_drawing_style_landmark=mp_drawing_styles.DrawingSpec( #creating a design style for ladnmarks
+neon_drawing_style_landmark=mp_drawing_styles.DrawingSpec(                     #creating a design style for ladnmarks
     color=(0,255,136),
     thickness=2,
     circle_radius=4
 )
-neon_drawing_style_connection=mp_drawing_styles.DrawingSpec( #creating a design style for connections
+neon_drawing_style_connection=mp_drawing_styles.DrawingSpec (       #creating a design style for connections
     color=(0,204,255),
     thickness=3,
     circle_radius=2

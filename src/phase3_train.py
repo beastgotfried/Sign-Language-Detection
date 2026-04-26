@@ -47,4 +47,5 @@ with open(encoder_path, 'wb') as f:
 print(f"Model data stored to {model_path}")
 print(f"Encoder data stored to {encoder_path}")
 
-
+print(x_train)
+print(x_test)
