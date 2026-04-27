@@ -31,7 +31,7 @@ DATA_DIR='./data' #routing data directory to data folder
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
-labels_to_collect= ["hello","yes","no"] #Creating symbols to capture for gestures
+labels_to_collect[36]=[] #Creating symbols to capture for gestures
 dataset_size=100 #number of frames to capture per gesture
 data=[] #initializing empty array for data
 labels=[] #initializing empty array for completed labels

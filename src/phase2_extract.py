@@ -31,7 +31,7 @@ def extract_features(frame_landmarks):
 
     wrist= points[0]
     
-    features.append(distance(points[4],points[8]))
+    features.append(distance(points[4],points[8])) #marking the points  
     features.append(distance(points[8],points[12]))
     features.append(distance(points[12],points[16]))
     features.append(distance(points[16],points[20]))
