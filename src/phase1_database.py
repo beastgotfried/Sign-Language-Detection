@@ -17,6 +17,7 @@ for filename in os.listdir(dataset_path):
     
 hands= mp_hands.Hands()
 
+#mediapipe only accepts RGB input so we have to change all the input which is in bgr to rgb
 for img_rgb in images:
     results= hands.process(img_rgb)
     if results.multi_hand_landmarks:
