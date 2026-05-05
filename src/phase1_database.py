@@ -31,9 +31,8 @@ for class_folder in os.listdir(dataset_path):
 # Initialize MediaPipe Hands
 hands = mp_hands.Hands()
 
-# Process images
-for class_label, img_bgr, img_rgb in images:
-    results = hands.process(img_rgb)
+for img_rgb in images:
+    results= hands.process(img_rgb)
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(
