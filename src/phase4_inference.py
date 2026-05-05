@@ -4,6 +4,7 @@ import numpy as np
 import os
 import pickle
 import time
+import argparse
 from collections import deque, Counter
 from utils.math_utils import distance, angle
 
@@ -14,6 +15,13 @@ ENCODER_PATH=os.path.join(MODELS_DIR,"label_encoder.pkl")
 
 SMOOTH_WINDOW=7
 CONF_THRESHOLD=0.6
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Run sign language inference from camera or dataset input.')
+    parser.add_argument('--mode', choices=['camera', 'dataset'], default='dataset')
+    parser.add_argument('--input-pickle', default=os.path.join(BASE_DIR, 'data', 'collected_data.pickle'))
+    return parser.parse_args()
 
 def load_artifacts(model_path=MODEL_PATH,encoder_path=ENCODER_PATH):
     if not os.path.exists(model_path):
@@ -122,8 +130,52 @@ def draw_overlay(frame, stable_label, stable_conf, hand_detected):
     cv2.putText(frame, conf_text, (20, 95), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 255, 0), 2)
     cv2.putText(frame, help_text, (20, 115), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 255, 0), 2)
     return frame
+
+
+def run_dataset_inference(model, encoder, input_pickle):
+    if not os.path.exists(input_pickle):
+        raise FileNotFoundError(f"Dataset file not found: {input_pickle}")
+
+    with open(input_pickle, 'rb') as f:
+        dataset = pickle.load(f)
+
+    raw_data = dataset.get('data', [])
+    labels = dataset.get('labels', [])
+
+    print(f"Loaded {len(raw_data)} samples from {input_pickle}")
+
+    correct = 0
+    total = 0
+
+    for index, frame_landmarks in enumerate(raw_data):
+        feature_vector = extract_features_live(frame_landmarks)
+        if len(feature_vector) != 23:
+            continue
+
+        predicted_label, confidence = predict_sign(model, encoder, feature_vector)
+        actual_label = labels[index] if index < len(labels) else None
+
+        if actual_label is not None:
+            total += 1
+            if predicted_label == actual_label:
+                correct += 1
+
+        if actual_label is not None:
+            print(f"Sample {index + 1}: actual={actual_label} predicted={predicted_label} confidence={confidence:.2f}")
+        else:
+            print(f"Sample {index + 1}: predicted={predicted_label} confidence={confidence:.2f}")
+
+    if total:
+        print(f"Dataset accuracy: {correct / total:.4f} ({correct}/{total})")
+
+
 def main():
+    args = parse_args()
     model, encoder = load_artifacts()
+
+    if args.mode == 'dataset':
+        run_dataset_inference(model, encoder, args.input_pickle)
+        return
 
     mp_hands = mp.solutions.hands
     mp_drawing = mp.solutions.drawing_utils

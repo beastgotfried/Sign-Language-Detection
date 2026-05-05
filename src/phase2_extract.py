@@ -1,11 +1,22 @@
 import pickle
 import os
 import numpy as np
+import argparse
 from utils.math_utils import distance, angle
 
-DATA_DIR='./data'
-input_pickle= os.path.join(DATA_DIR, 'collected_data.pickle')
-output_pickle= os.path.join(DATA_DIR, 'processed_data.pickle')
+DATA_DIR = './data'
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Extract hand features from collected landmark data.')
+    parser.add_argument('--input-pickle', default=os.path.join(DATA_DIR, 'collected_data.pickle'))
+    parser.add_argument('--output-pickle', default=os.path.join(DATA_DIR, 'processed_data.pickle'))
+    return parser.parse_args()
+
+
+args = parse_args()
+input_pickle = args.input_pickle
+output_pickle = args.output_pickle
 
 
 print(f"Loading the raw data from {input_pickle}")

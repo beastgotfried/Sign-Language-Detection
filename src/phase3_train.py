@@ -2,14 +2,26 @@ import pickle
 import os
 import numpy as np
 import pandas as pd
+import argparse
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 
-DATA_DIR= './data'
-MODELS='./models'
-input_pickle=os.path.join(DATA_DIR,'processed_data.pickle')
+DATA_DIR = './data'
+MODELS = './models'
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train the sign language classifier from processed feature data.')
+    parser.add_argument('--input-pickle', default=os.path.join(DATA_DIR, 'processed_data.pickle'))
+    parser.add_argument('--models-dir', default=MODELS)
+    return parser.parse_args()
+
+
+args = parse_args()
+input_pickle = args.input_pickle
+MODELS = args.models_dir
 
 print(f"Loading processed data from {input_pickle}...")
 with open(input_pickle, 'rb') as f:
@@ -37,6 +49,8 @@ print(f"model accuracy is: {accuracy}")
 
 model_path = os.path.join(MODELS, 'rf_model.pkl')
 encoder_path = os.path.join(MODELS, 'label_encoder.pkl')
+
+os.makedirs(MODELS, exist_ok=True)
 
 with open(model_path, 'wb') as f:
     pickle.dump(model,f)
