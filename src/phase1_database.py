@@ -8,7 +8,9 @@ import pickle
 
 from utils.math_utils import distance,angle #importing distance and angle functions
 
-DATA_DIR= r"D:\Kaggle Dataset\isl_dataset"
+BASE_DIR=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR=r"D:\Kaggle Dataset\isl_dataset\custom_images"
+MODELS_DIR=os.path.join(BASE_DIR,"models")
 
 
 def parse_args():
@@ -17,13 +19,13 @@ def parse_args():
     )
     parser.add_argument(
         "--dataset-path",
-        default=r"D:\Kaggle Dataset\isl_dataset",
+        default=r"D:\Kaggle Dataset\isl_dataset\custom_images",
         help="path to root folder containing data and subfolders",
     )
     parser.add_argument(
         "--output-pickle",
         help="output for the dat extracted from the dataset",
-        default= os.path.join(DATA_DIR, "processed_data.pickle"),
+        default=os.path.join(MODELS_DIR,"processed_data.pkl"),
     )
     return parser.parse_args()
 
@@ -86,11 +88,11 @@ def landmarks_to_vector(hand_landmarks):
     frame_data=[]
     for landmark in hand_landmarks.landmark:
         frame_data.extend([landmark.x,landmark.y,landmark.z])
-    return frame_data 
+    return frame_data
 
 def main():
     args=parse_args()
-    os.makedirs(DATA_DIR,exist_ok=True)
+    os.makedirs(MODELS_DIR,exist_ok=True)
     
     mp_hands=mp.solutions.hands
     hands= mp_hands.Hands(
@@ -110,10 +112,13 @@ def main():
             continue
         for filename in os.listdir(class_path):
             img_path= os.path.join(class_path,filename)
+            if not os.path.exists(img_path):
+                print(f"File does not exist: {img_path}")
+                continue
             img_bgr=cv2.imread(img_path)
             
             if img_bgr is None:
-                print(f"No image detected in:{img_path}")
+                print(f"Failed to load image: {img_path}")
                 continue
             #scaling image for more accuracy
             max_dimension = 720
