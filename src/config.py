@@ -5,9 +5,7 @@ here which can be used to alter throughout the entire code later on without havi
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-import queue
-
-from phase1_database import landmarks_to_vector
+ 
 
 BASE_DIR=Path(__file__).resolve().parent.parent
 DATA_DIR= BASE_DIR/"data"
@@ -114,12 +112,12 @@ class Config:
     PAUSE_CONFIRM_SECONDS:float=PAUSE_CONFIRM_SECONDS
     
     TTS_BACKEND:str=TTS_BACKEND
-    TTS_RATE:int:TTS_RATE
-    TTS_VOLUME:float:TTS_VOLUME
-    TTS_INTERRUPT_ENABLED:bool:TTS_INTERRUPT_ENABLED
+    TTS_RATE:int=TTS_RATE
+    TTS_VOLUME:float=TTS_VOLUME
+    TTS_INTERRUPT_ENABLED:bool=TTS_INTERRUPT_ENABLED
     
     TYPING_STRATEGY:str=TYPING_STRATEGY
-    typing_speed:float=typing_speed
+    TYPING_SPEED:float=TYPING_SPEED
     CLIPBOARD_RESTORE_TIMEOUT:float=CLIPBOARD_RESTORE_TIMEOUT
     BACKSPACE_REPEAT_DELAY:float=BACKSPACE_REPEAT_DELAY
     
@@ -129,8 +127,8 @@ class Config:
     
     LOG_LEVEL:str=LOG_LEVEL
     LOG_TO_FILE:bool=LOG_TO_FILE
-    LOG_FORMAT=str=LOG_FORMAT
-    LOG_FILE_NAME=str=LOG_FILE_NAME
+    LOG_FORMAT:str=LOG_FORMAT
+    LOG_FILE_NAME:str=LOG_FILE_NAME
     
     TRAIN_SPLIT_RATIO:float=TRAIN_SPLIT_RATIO
     RANDOM_STATE:int=RANDOM_STATE
@@ -146,9 +144,15 @@ class Config:
     
     MP_STATIC_IMAGE_MODE:bool=MP_STATIC_IMAGE_MODE
     MP_MAX_NUM_HANDS:int=MP_MAX_NUM_HANDS
-    MP_MIN_DETECTION_CONFIDENCE:int=MP_MIN_DETECTION_CONFIDENCE
-    MP_MIN_TRACKING_CONFIDENCE:int=MP_MIN_TRACKING_CONFIDENCE
+    MP_MIN_DETECTION_CONFIDENCE:float=MP_MIN_DETECTION_CONFIDENCE
+    MP_MIN_TRACKING_CONFIDENCE:float=MP_MIN_TRACKING_CONFIDENCE
     
     DEFAULT_ENCODING:str=DEFAULT_ENCODING
     
+def ensure_runtime_dirs() -> None:
+    for directory in (DATA_DIR, MODELS_DIR, LOGS_DIR): #creates runtime dirs if they dont exist already
+        directory.mkdir(parents=True, exist_ok=True)
+
+ensure_runtime_dirs()
+DEFAULT_CONFIG=Config()
     
