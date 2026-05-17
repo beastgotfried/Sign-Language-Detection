@@ -3,18 +3,14 @@ import mediapipe as mp
 import numpy as np
 import os
 import pickle
-import time
 import argparse
 from collections import deque, Counter
-from utils.math_utils import distance, angle
+from config import CONFIDENCE_THRESHOLD, LABEL_ENCODER_PATH, MODEL_PATH, STABILITY_FRAMES, FEATURE_DIMENSIONS
+from phase2_features import extract_features
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODELS_DIR = os.path.join(BASE_DIR,"models")
-MODEL_PATH= os.path.join(MODELS_DIR,"rf_model.pkl")
-ENCODER_PATH=os.path.join(MODELS_DIR,"label_encoder.pkl")
-
-SMOOTH_WINDOW=7
-CONF_THRESHOLD=0.6
+SMOOTH_WINDOW = STABILITY_FRAMES
+CONF_THRESHOLD = CONFIDENCE_THRESHOLD
 
 
 def parse_args():
@@ -23,7 +19,7 @@ def parse_args():
     parser.add_argument('--input-pickle', default=os.path.join(BASE_DIR, 'data', 'collected_data.pickle'))
     return parser.parse_args()
 
-def load_artifacts(model_path=MODEL_PATH,encoder_path=ENCODER_PATH):
+def load_artifacts(model_path=str(MODEL_PATH), encoder_path=str(LABEL_ENCODER_PATH)):
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file not found: {model_path}")
     if not os.path.exists(encoder_path):
@@ -37,58 +33,7 @@ def load_artifacts(model_path=MODEL_PATH,encoder_path=ENCODER_PATH):
     return model, encoder
 
 def extract_features_live(frame_landmarks):
-    points = []
-    features = []
-
-    for i in range(0, len(frame_landmarks), 3):
-        points.append([frame_landmarks[i], frame_landmarks[i+1], frame_landmarks[i+2]])
-
-    if len(points) != 21:
-        return [0.0] * 23
-
-    wrist = points[0]
-
-    # distances between hands
-    features.append(distance(points[4], points[8]))
-    features.append(distance(points[8], points[12]))
-    features.append(distance(points[12], points[16]))
-    features.append(distance(points[16], points[20]))
-
-    # midpoints between the 2 node points
-    thumb_mid = np.mean([points[2], points[3]], axis=0)
-    index_mid = np.mean([points[6], points[7]], axis=0)
-    middle_mid = np.mean([points[10], points[11]], axis=0)
-    ring_mid = np.mean([points[14], points[15]], axis=0)
-    little_mid = np.mean([points[18], points[19]], axis=0)
-
-    # angles intra finger
-    features.append(angle(points[1], thumb_mid, points[4]))
-    features.append(angle(points[5], index_mid, points[8]))
-    features.append(angle(points[9], middle_mid, points[12]))
-    features.append(angle(points[13], ring_mid, points[16]))
-    features.append(angle(points[17], little_mid, points[20]))
-
-    # angles btwn finger and wrist
-    features.append(angle(wrist, points[1], points[4]))
-    features.append(angle(wrist, points[5], points[8]))
-    features.append(angle(wrist, points[9], points[12]))
-    features.append(angle(wrist, points[13], points[16]))
-    features.append(angle(wrist, points[17], points[20]))
-
-    # angles btwn 2 finger
-    features.append(angle(points[4], wrist, points[8]))
-    features.append(angle(points[8], wrist, points[12]))
-    features.append(angle(points[12], wrist, points[16]))
-    features.append(angle(points[16], wrist, points[20]))
-
-    # 3 wrist coords
-    features.extend([wrist[0], wrist[1], wrist[2]])
-
-    features.extend([0.0, 0.0])
-
-    if len(features) != 23:
-        return [0.0] * 23
-    return features
+    return extract_features(frame_landmarks)
 
 def predict_sign(model, encoder, feature_vector):
     x = np.array(feature_vector, dtype=np.float32).reshape(1, -1)
@@ -149,7 +94,7 @@ def run_dataset_inference(model, encoder, input_pickle):
 
     for index, frame_landmarks in enumerate(raw_data):
         feature_vector = extract_features_live(frame_landmarks)
-        if len(feature_vector) != 23:
+        if len(feature_vector) != FEATURE_DIMENSIONS:
             continue
 
         predicted_label, confidence = predict_sign(model, encoder, feature_vector)
@@ -184,8 +129,6 @@ def main():
 
     history_labels = deque(maxlen=SMOOTH_WINDOW)
     history_conf = deque(maxlen=SMOOTH_WINDOW)
-    prev_t = time.time()
-
     with mp_hands.Hands(
         static_image_mode=False,
         max_num_hands=1,
@@ -221,7 +164,7 @@ def main():
 
                 feature_vector = extract_features_live(frame_data)
 
-                if len(feature_vector) == 23:
+                if len(feature_vector) == FEATURE_DIMENSIONS:
                     current_label, current_conf = predict_sign(model, encoder, feature_vector)
                     stable_label, stable_conf = smooth_prediction(
                         history_labels, history_conf, current_label, current_conf
