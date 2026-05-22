@@ -6,45 +6,44 @@ import pickle
 
 from phase2_features import extract_features, landmarks_to_vector
 
-BASE_DIR=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR=r"D:\Kaggle Dataset\isl_dataset\custom_images"
-MODELS_DIR=os.path.join(BASE_DIR,"models")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+MODELS_DIR = os.path.join(BASE_DIR, "models")
 
 
 def parse_args():
-    parser= argparse.ArgumentParser(
+    parser = argparse.ArgumentParser(
         description="Extracting hand landmarks from the image",
     )
-    parser.add_argument(
-        "--dataset-path",
-        default=r"D:\Kaggle Dataset\isl_dataset\custom_images",
-        help="path to root folder containing data and subfolders",
-    )
+    # --dataset-path is now hardcoded in main()
     parser.add_argument(
         "--output-pickle",
-        help="output for the dat extracted from the dataset",
-        default=os.path.join(MODELS_DIR,"processed_data.pkl"),
+        help="output for the data extracted from the dataset",
+        default=os.path.join(DATA_DIR, "collected_data.pkl"),
     )
     return parser.parse_args()
 
+
 def main():
-    args=parse_args()
-    os.makedirs(MODELS_DIR,exist_ok=True)
-    
-    mp_hands=mp.solutions.hands
-    hands= mp_hands.Hands(
-        static_image_mode=True,
-        max_num_hands=1,
-        min_detection_confidence=0.75
+    args = parse_args()
+    dataset_path = r"D:\Kaggle Dataset\isl_dataset\custom_images"
+
+    # Create the directory for the output pickle if it doesn't exist
+    output_dir = os.path.dirname(args.output_pickle)
+    os.makedirs(output_dir, exist_ok=True)
+
+    mp_hands = mp.solutions.hands
+    hands = mp_hands.Hands(
+        static_image_mode=True, max_num_hands=1, min_detection_confidence=0.75
     )
-    
-    data=[]
-    labels=[]
-    
-    print("reading dataset")
-    #iterating thru every folder inside the dataset
-    for class_folder in os.listdir(args.dataset_path):
-        class_path= os.path.join(args.dataset_path,class_folder)
+
+    data = []
+    labels = []
+
+    print(f"Reading dataset from hardcoded path: {dataset_path}")
+    # iterating thru every folder inside the dataset
+    for class_folder in os.listdir(dataset_path):
+        class_path = os.path.join(dataset_path, class_folder)
         if not os.path.isdir(class_path):
             continue
         for filename in os.listdir(class_path):

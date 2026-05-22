@@ -1,8 +1,9 @@
 import argparse
 import os
 import pickle
-
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
@@ -20,8 +21,8 @@ from config import (
     TRAIN_SPLIT_RATIO,
 )
 
-DATA_DIR = "./data"
-MODELS = "./models"
+DATA_DIR = "data"
+MODELS = "models"
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,6 +41,20 @@ def _class_accuracy_table(y_true: np.ndarray, y_pred: np.ndarray, labels: np.nda
         class_acc = 0.0 if row_sum == 0 else float(matrix[label_idx, label_idx]) / float(row_sum)
         table.append((class_name, class_acc, row_sum))
     return table
+
+
+def plot_confusion_matrix(cm: np.ndarray, labels: list[str], output_path: str) -> None:
+    """
+    Plots the confusion matrix and saves it to a file.
+    """
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=labels, yticklabels=labels)
+    plt.ylabel("Actual")
+    plt.xlabel("Predicted")
+    plt.title("Confusion Matrix")
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Confusion matrix plot saved to {output_path}")
 
 
 def main() -> None:
@@ -118,6 +133,11 @@ def main() -> None:
     cm = confusion_matrix(y_test, test_pred, labels=labels)
     np.save(cm_npy_path, cm)
     np.savetxt(cm_csv_path, cm, fmt="%d", delimiter=",")
+
+    # Plot and save the confusion matrix
+    cm_plot_path = os.path.join(models_dir, "confusion_matrix.png")
+    class_names = [encoder.inverse_transform([l])[0] for l in labels]
+    plot_confusion_matrix(cm, class_names, cm_plot_path)
 
     print(f"Model stored to {model_path}")
     print(f"Encoder stored to {encoder_path}")

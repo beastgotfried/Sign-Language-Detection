@@ -1,11 +1,26 @@
+import argparse
 import cv2
 import mediapipe as mp
+import multiprocessing as mp_proc
 import numpy as np
 import os
 import pickle
-import argparse
+import time
 from collections import deque, Counter
-from config import CONFIDENCE_THRESHOLD, LABEL_ENCODER_PATH, MODEL_PATH, STABILITY_FRAMES, FEATURE_DIMENSIONS
+from queue import Queue
+
+from config import (
+    BACKSPACE_CONFIDENCE_THRESHOLD,
+    BACKSPACE_TOKEN,
+    COMMIT_TOKEN,
+    CONFIDENCE_THRESHOLD,
+    LABEL_ENCODER_PATH,
+    MODEL_PATH,
+    PAUSE_COMMIT_SECONDS,
+    PAUSE_CONFIRM_SECONDS,
+    STABILITY_FRAMES,
+    FEATURE_DIMENSIONS,
+)
 from phase2_features import extract_features
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,9 +29,10 @@ CONF_THRESHOLD = CONFIDENCE_THRESHOLD
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Run sign language inference from camera or dataset input.')
-    parser.add_argument('--mode', choices=['camera', 'dataset'], default='dataset')
+    parser = argparse.ArgumentParser(description='Run sign language inference from camera or live webcam.')
+    parser.add_argument('--mode', choices=['camera', 'dataset'], default='camera')
     parser.add_argument('--input-pickle', default=os.path.join(BASE_DIR, 'data', 'collected_data.pickle'))
+    parser.add_argument('--queue-name', default='sign_predictions', help='Multiprocessing queue name for IPC.')
     return parser.parse_args()
 
 def load_artifacts(model_path=str(MODEL_PATH), encoder_path=str(LABEL_ENCODER_PATH)):
@@ -62,73 +78,84 @@ def smooth_prediction(history_labels, history_conf, current_label, current_conf)
     if stable_conf < CONF_THRESHOLD:
         return "", stable_conf
     return stable_label, stable_conf
-def draw_overlay(frame, stable_label, stable_conf, hand_detected):
+
+
+def should_emit_prediction(current_label, current_conf, last_label, last_conf_time):
+    """
+    Determine if a new stable prediction should be emitted as a token.
+    
+    Returns (should_emit, token):
+    - (True, label) if stable prediction differs from last and confidence is high
+    - (False, None) otherwise
+    """
+    if not current_label or current_conf < CONF_THRESHOLD:
+        return False, None
+    
+    if current_label != last_label:
+        return True, current_label
+    
+    return False, None
+
+
+def detect_action_hold(stable_label, stable_conf, hold_start_time, action_threshold):
+    """
+    Detect if a stable prediction has been held long enough to trigger an action.
+    
+    Returns (should_trigger, seconds_held):
+    """
+    if not stable_label:
+        return False, 0.0
+    
+    if hold_start_time is None:
+        return False, 0.0
+    
+    seconds_held = time.time() - hold_start_time
+    return seconds_held >= action_threshold, seconds_held
+
+
+def draw_overlay(frame, stable_label, stable_conf, hand_detected, queue_size=0):
     h, w, _ = frame.shape
 
-    base_text = "Welcome" if hand_detected else "Hand: NO"
-    pred_text = f"Prediction: {stable_label if stable_label else '....'}"
+    base_text = "Hand: YES" if hand_detected else "Hand: NO"
+    pred_text = f"Prediction: {stable_label if stable_label else '----'}"
     conf_text = f"Confidence: {stable_conf:.2f}"
-    help_text = "Q: Quit"
+    queue_text = f"Queue size: {queue_size}"
+    help_text = "Q: Quit | SPACE: Pause"
 
-    cv2.putText(frame, base_text, (20, 35), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, pred_text, (20, 65), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, conf_text, (20, 95), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, help_text, (20, 115), cv2.FONT_HERSHEY_COMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, base_text, (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, pred_text, (20, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, conf_text, (20, 95), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.putText(frame, queue_text, (20, 125), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 150, 255), 2)
+    cv2.putText(frame, help_text, (20, 155), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 0), 1)
     return frame
 
 
-def run_dataset_inference(model, encoder, input_pickle):
-    if not os.path.exists(input_pickle):
-        raise FileNotFoundError(f"Dataset file not found: {input_pickle}")
-
-    with open(input_pickle, 'rb') as f:
-        dataset = pickle.load(f)
-
-    raw_data = dataset.get('data', [])
-    labels = dataset.get('labels', [])
-
-    print(f"Loaded {len(raw_data)} samples from {input_pickle}")
-
-    correct = 0
-    total = 0
-
-    for index, frame_landmarks in enumerate(raw_data):
-        feature_vector = extract_features_live(frame_landmarks)
-        if len(feature_vector) != FEATURE_DIMENSIONS:
-            continue
-
-        predicted_label, confidence = predict_sign(model, encoder, feature_vector)
-        actual_label = labels[index] if index < len(labels) else None
-
-        if actual_label is not None:
-            total += 1
-            if predicted_label == actual_label:
-                correct += 1
-
-        if actual_label is not None:
-            print(f"Sample {index + 1}: actual={actual_label} predicted={predicted_label} confidence={confidence:.2f}")
-        else:
-            print(f"Sample {index + 1}: predicted={predicted_label} confidence={confidence:.2f}")
-
-    if total:
-        print(f"Dataset accuracy: {correct / total:.4f} ({correct}/{total})")
-
-
-def main():
-    args = parse_args()
-    model, encoder = load_artifacts()
-
-    if args.mode == 'dataset':
-        run_dataset_inference(model, encoder, args.input_pickle)
-        return
-
+def run_webcam_inference(model, encoder, output_queue=None):
+    """
+    Run live webcam inference with queue-based prediction output and pause detection.
+    
+    Emits to output_queue:
+    - Prediction dictionaries with keys: 'label', 'confidence', 'timestamp'
+    - Token dictionaries (BACKSPACE_TOKEN, COMMIT_TOKEN) on pause/action events
+    """
     mp_hands = mp.solutions.hands
     mp_drawing = mp.solutions.drawing_utils
 
     cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: cannot open webcam")
+        return
 
     history_labels = deque(maxlen=SMOOTH_WINDOW)
     history_conf = deque(maxlen=SMOOTH_WINDOW)
+
+    last_emitted_label = None
+    pause_start_time = None
+    hold_start_time = None
+    paused = False
+
+    print("Webcam inference running. Press Q to quit, SPACE to pause/resume.")
+
     with mp_hands.Hands(
         static_image_mode=False,
         max_num_hands=1,
@@ -138,6 +165,7 @@ def main():
         while True:
             ret, frame = cap.read()
             if not ret:
+                print("Error: cannot read frame")
                 break
 
             frame = cv2.flip(frame, 1)
@@ -148,7 +176,7 @@ def main():
             stable_label = ""
             stable_conf = 0.0
 
-            if results.multi_hand_landmarks:
+            if results.multi_hand_landmarks and not paused:
                 hand_detected = True
                 hand_landmarks = results.multi_hand_landmarks[0]
 
@@ -169,16 +197,79 @@ def main():
                     stable_label, stable_conf = smooth_prediction(
                         history_labels, history_conf, current_label, current_conf
                     )
+                    
+                    # Check if we should emit this prediction
+                    should_emit, token = should_emit_prediction(stable_label, stable_conf, last_emitted_label, None)
+                    if should_emit and output_queue is not None:
+                        output_queue.put({
+                            'type': 'prediction',
+                            'label': token,
+                            'confidence': stable_conf,
+                            'timestamp': time.time()
+                        })
+                        last_emitted_label = token
+                        pause_start_time = time.time()
+                        hold_start_time = time.time()
+                    
+                    # Check for hold-based actions (e.g., backspace after holding)
+                    if stable_label and hold_start_time:
+                        should_trigger_commit, seconds_held = detect_action_hold(
+                            stable_label, stable_conf, hold_start_time, PAUSE_COMMIT_SECONDS
+                        )
+                        if should_trigger_commit and output_queue is not None:
+                            output_queue.put({
+                                'type': 'token',
+                                'token': COMMIT_TOKEN,
+                                'timestamp': time.time()
+                            })
+                            hold_start_time = None
+                            last_emitted_label = None
+            else:
+                # No hand detected or paused
+                if pause_start_time and not paused:
+                    seconds_since_last = time.time() - pause_start_time
+                    if seconds_since_last >= PAUSE_CONFIRM_SECONDS:
+                        if output_queue is not None:
+                            output_queue.put({
+                                'type': 'token',
+                                'token': COMMIT_TOKEN,
+                                'timestamp': time.time()
+                            })
+                        pause_start_time = None
+                        last_emitted_label = None
 
-            frame = draw_overlay(frame, stable_label, stable_conf, hand_detected)
-            cv2.imshow('Sign Language', frame)
+            queue_size = output_queue.qsize() if output_queue else 0
+            frame = draw_overlay(frame, stable_label, stable_conf, hand_detected, queue_size)
+            cv2.imshow('SignBridge Inference', frame)
 
-            key = cv2.waitKey(1)
+            key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
+            elif key == ord(' '):
+                paused = not paused
+                status = "PAUSED" if paused else "RESUMED"
+                print(f"Inference {status}")
+                history_labels.clear()
+                history_conf.clear()
 
     cap.release()
     cv2.destroyAllWindows()
+    print("Webcam inference stopped")
+
+
+def main():
+    args = parse_args()
+    model, encoder = load_artifacts()
+
+    # Create a queue for prediction output (IPC with bridge)
+    output_queue = Queue()
+
+    if args.mode == 'camera':
+        print("Starting live webcam inference...")
+        run_webcam_inference(model, encoder, output_queue)
+    else:
+        print("Dataset mode not yet implemented in this version.")
+        print("Use --mode camera for live inference.")
 
 
 if __name__ == "__main__":
