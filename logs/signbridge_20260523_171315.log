@@ -1,0 +1,10 @@
+2026-05-23 17:13:16,727 | __mp_main__ | INFO | Core imports successful
+2026-05-23 17:13:16,734 | background_service | INFO | Inference subprocess: Starting inference loop
+2026-05-23 17:13:19,633 | background_service | ERROR | Inference subprocess error: OpenCV(4.13.0) D:\a\opencv-python\opencv-python\opencv\modules\highgui\src\window.cpp:1301: error: (-2:Unspecified error) The function is not implemented. Rebuild the library with Windows, GTK+ 2.x or Cocoa support. If you are on Ubuntu or Debian, install libgtk2.0-dev and pkg-config, then re-run cmake or configure script in function 'cvShowImage'
+Traceback (most recent call last):
+  File "C:\Users\Ankush Wadehra\Desktop\College\Learning\Sign-Language-Detection\src\background_service.py", line 248, in _run_inference_wrapper
+    run_webcam_inference(model, encoder, output_queue=queue)
+  File "C:\Users\Ankush Wadehra\Desktop\College\Learning\Sign-Language-Detection\src\phase4_inference.py", line 243, in run_webcam_inference
+    cv2.imshow('SignBridge Inference', frame)
+cv2.error: OpenCV(4.13.0) D:\a\opencv-python\opencv-python\opencv\modules\highgui\src\window.cpp:1301: error: (-2:Unspecified error) The function is not implemented. Rebuild the library with Windows, GTK+ 2.x or Cocoa support. If you are on Ubuntu or Debian, install libgtk2.0-dev and pkg-config, then re-run cmake or configure script in function 'cvShowImage'
+

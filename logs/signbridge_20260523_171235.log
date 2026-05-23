@@ -1,0 +1,13 @@
+2026-05-23 17:12:36,592 | __mp_main__ | INFO | Core imports successful
+2026-05-23 17:12:36,601 | background_service | INFO | Bridge subprocess: Starting bridge consumer
+2026-05-23 17:12:36,601 | prediction_bridge | INFO | QueueConsumerThread initialized with timeout=0.1s
+2026-05-23 17:12:36,601 | prediction_bridge | INFO | PredictionBridge initialized
+2026-05-23 17:12:36,602 | prediction_bridge | INFO | Consumer loop started
+2026-05-23 17:12:36,602 | prediction_bridge | INFO | Queue consumer thread started
+2026-05-23 17:12:36,603 | prediction_bridge | INFO | PredictionBridge started
+2026-05-23 17:12:36,603 | background_service | ERROR | Bridge subprocess error: 'QueueConsumerThread' object has no attribute 'run'
+Traceback (most recent call last):
+  File "C:\Users\Ankush Wadehra\Desktop\College\Learning\Sign-Language-Detection\src\background_service.py", line 269, in _run_bridge_wrapper
+    bridge.consumer.run()  # Run consumer loop (blocking)
+    ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'QueueConsumerThread' object has no attribute 'run'

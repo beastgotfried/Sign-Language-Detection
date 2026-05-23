@@ -51,11 +51,8 @@ try:
 except ImportError:
     UI_AUTOMATION_AVAILABLE = False
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s | %(name)s | %(levelname)s | %(message)s'
-)
+# Disable logging output (no file or console logging)
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 # Set config defaults (fallback if import fails)

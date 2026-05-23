@@ -1,0 +1,41 @@
+2026-05-23 17:13:33,153 | __main__ | INFO | Core imports successful
+2026-05-23 17:13:33,154 | __main__ | INFO | SignBridgeApplication initialized
+2026-05-23 17:13:33,156 | __main__ | INFO | ================================================================================
+2026-05-23 17:13:33,157 | __main__ | INFO | SignBridge Application Starting
+2026-05-23 17:13:33,157 | __main__ | INFO | ================================================================================
+2026-05-23 17:13:33,158 | __main__ | INFO | Signal handlers registered
+2026-05-23 17:13:33,158 | __main__ | INFO | Starting BackgroundService...
+2026-05-23 17:13:33,158 | background_service | INFO | ProcessManager initialized
+2026-05-23 17:13:33,159 | background_service | INFO | BackgroundService initialized
+2026-05-23 17:13:33,159 | background_service | INFO | ================================================================================
+2026-05-23 17:13:33,159 | background_service | INFO | Starting SignBridge Background Service...
+2026-05-23 17:13:33,159 | background_service | INFO | ================================================================================
+2026-05-23 17:13:34,771 | background_service | INFO | Manager-backed Queue created (supports process sharing)
+2026-05-23 17:13:34,772 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:13:34,777 | background_service | INFO | Inference subprocess started (PID: 5400)
+2026-05-23 17:13:35,279 | background_service | INFO | Starting bridge subprocess...
+2026-05-23 17:13:35,294 | background_service | INFO | Bridge subprocess started (PID: 22944)
+2026-05-23 17:13:35,295 | background_service | INFO | HealthMonitor initialized
+2026-05-23 17:13:35,297 | background_service | INFO | Health monitor started
+2026-05-23 17:13:35,297 | background_service | INFO | LogAggregator initialized
+2026-05-23 17:13:35,299 | background_service | INFO | Log aggregator started (monitoring queue health)
+2026-05-23 17:13:35,299 | background_service | INFO | ================================================================================
+2026-05-23 17:13:35,301 | background_service | WARNING | Queue stalled for 1779536615.3s
+2026-05-23 17:13:35,304 | background_service | INFO | Service started successfully
+2026-05-23 17:13:35,305 | background_service | INFO | Press Ctrl+C to stop
+2026-05-23 17:13:35,306 | background_service | INFO | ================================================================================
+2026-05-23 17:13:35,307 | __main__ | INFO | BackgroundService started successfully
+2026-05-23 17:13:40,305 | background_service | ERROR | inference process crashed (restart #1)
+2026-05-23 17:13:40,305 | background_service | INFO | Waiting 1s before restart...
+2026-05-23 17:13:41,307 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:13:41,323 | background_service | INFO | Inference subprocess started (PID: 39800)
+2026-05-23 17:13:41,323 | background_service | INFO | inference restarted successfully
+2026-05-23 17:13:41,324 | background_service | WARNING | Queue stalled for 1779536621.3s
+2026-05-23 17:13:46,326 | background_service | WARNING | Queue stalled for 1779536626.3s
+2026-05-23 17:13:51,327 | background_service | ERROR | inference process crashed (restart #2)
+2026-05-23 17:13:51,328 | background_service | INFO | Waiting 2s before restart...
+2026-05-23 17:13:53,328 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:13:53,342 | background_service | INFO | Inference subprocess started (PID: 38924)
+2026-05-23 17:13:53,343 | background_service | INFO | inference restarted successfully
+2026-05-23 17:13:53,343 | background_service | WARNING | Queue stalled for 1779536633.3s
+2026-05-23 17:13:58,345 | background_service | WARNING | Queue stalled for 1779536638.3s

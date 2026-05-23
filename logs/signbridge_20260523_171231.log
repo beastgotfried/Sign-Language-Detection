@@ -1,0 +1,67 @@
+2026-05-23 17:12:32,819 | __main__ | INFO | Core imports successful
+2026-05-23 17:12:32,820 | __main__ | INFO | SignBridgeApplication initialized
+2026-05-23 17:12:32,821 | __main__ | INFO | ================================================================================
+2026-05-23 17:12:32,821 | __main__ | INFO | SignBridge Application Starting
+2026-05-23 17:12:32,821 | __main__ | INFO | ================================================================================
+2026-05-23 17:12:32,822 | __main__ | INFO | Signal handlers registered
+2026-05-23 17:12:32,822 | __main__ | INFO | Starting BackgroundService...
+2026-05-23 17:12:32,822 | background_service | INFO | ProcessManager initialized
+2026-05-23 17:12:32,825 | background_service | INFO | BackgroundService initialized
+2026-05-23 17:12:32,825 | background_service | INFO | ================================================================================
+2026-05-23 17:12:32,825 | background_service | INFO | Starting SignBridge Background Service...
+2026-05-23 17:12:32,825 | background_service | INFO | ================================================================================
+2026-05-23 17:12:34,547 | background_service | INFO | Manager-backed Queue created (supports process sharing)
+2026-05-23 17:12:34,547 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:12:34,554 | background_service | INFO | Inference subprocess started (PID: 16304)
+2026-05-23 17:12:35,056 | background_service | INFO | Starting bridge subprocess...
+2026-05-23 17:12:35,063 | background_service | INFO | Bridge subprocess started (PID: 18820)
+2026-05-23 17:12:35,063 | background_service | INFO | HealthMonitor initialized
+2026-05-23 17:12:35,064 | background_service | INFO | Health monitor started
+2026-05-23 17:12:35,064 | background_service | INFO | LogAggregator initialized
+2026-05-23 17:12:35,065 | background_service | INFO | Log aggregator started (monitoring queue health)
+2026-05-23 17:12:35,065 | background_service | INFO | ================================================================================
+2026-05-23 17:12:35,066 | background_service | WARNING | Queue stalled for 1779536555.1s
+2026-05-23 17:12:35,067 | background_service | INFO | Service started successfully
+2026-05-23 17:12:35,067 | background_service | INFO | Press Ctrl+C to stop
+2026-05-23 17:12:35,068 | background_service | INFO | ================================================================================
+2026-05-23 17:12:35,068 | __main__ | INFO | BackgroundService started successfully
+2026-05-23 17:12:40,068 | background_service | ERROR | bridge process crashed (restart #1)
+2026-05-23 17:12:40,068 | background_service | INFO | Waiting 1s before restart...
+2026-05-23 17:12:41,070 | background_service | INFO | Starting bridge subprocess...
+2026-05-23 17:12:41,079 | background_service | INFO | Bridge subprocess started (PID: 15688)
+2026-05-23 17:12:41,080 | background_service | INFO | bridge restarted successfully
+2026-05-23 17:12:41,080 | background_service | WARNING | Queue stalled for 1779536561.1s
+2026-05-23 17:12:46,081 | background_service | ERROR | bridge process crashed (restart #2)
+2026-05-23 17:12:46,081 | background_service | INFO | Waiting 2s before restart...
+2026-05-23 17:12:48,082 | background_service | INFO | Starting bridge subprocess...
+2026-05-23 17:12:48,092 | background_service | INFO | Bridge subprocess started (PID: 36688)
+2026-05-23 17:12:48,092 | background_service | INFO | bridge restarted successfully
+2026-05-23 17:12:48,094 | background_service | WARNING | Queue stalled for 1779536568.1s
+2026-05-23 17:12:53,094 | background_service | ERROR | bridge process crashed (restart #3)
+2026-05-23 17:12:53,094 | background_service | INFO | Waiting 4s before restart...
+2026-05-23 17:12:57,095 | background_service | INFO | Starting bridge subprocess...
+2026-05-23 17:12:57,110 | background_service | INFO | Bridge subprocess started (PID: 35856)
+2026-05-23 17:12:57,110 | background_service | INFO | bridge restarted successfully
+2026-05-23 17:12:57,111 | background_service | WARNING | Queue stalled for 1779536577.1s
+2026-05-23 17:13:02,111 | background_service | ERROR | inference process crashed (restart #1)
+2026-05-23 17:13:02,111 | background_service | INFO | Waiting 1s before restart...
+2026-05-23 17:13:03,113 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:13:03,132 | background_service | INFO | Inference subprocess started (PID: 5364)
+2026-05-23 17:13:03,132 | background_service | INFO | inference restarted successfully
+2026-05-23 17:13:03,133 | background_service | ERROR | bridge process crashed (restart #4)
+2026-05-23 17:13:03,133 | background_service | CRITICAL | bridge reached max restarts (3), not restarting. Manual intervention required.
+2026-05-23 17:13:03,134 | background_service | WARNING | Queue stalled for 1779536583.1s
+2026-05-23 17:13:08,135 | background_service | ERROR | bridge process crashed (restart #4)
+2026-05-23 17:13:08,135 | background_service | CRITICAL | bridge reached max restarts (3), not restarting. Manual intervention required.
+2026-05-23 17:13:08,136 | background_service | WARNING | Queue stalled for 1779536588.1s
+2026-05-23 17:13:13,137 | background_service | ERROR | inference process crashed (restart #2)
+2026-05-23 17:13:13,137 | background_service | INFO | Waiting 2s before restart...
+2026-05-23 17:13:15,138 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:13:15,152 | background_service | INFO | Inference subprocess started (PID: 40540)
+2026-05-23 17:13:15,153 | background_service | INFO | inference restarted successfully
+2026-05-23 17:13:15,155 | background_service | ERROR | bridge process crashed (restart #4)
+2026-05-23 17:13:15,155 | background_service | CRITICAL | bridge reached max restarts (3), not restarting. Manual intervention required.
+2026-05-23 17:13:15,156 | background_service | WARNING | Queue stalled for 1779536595.2s
+2026-05-23 17:13:20,157 | background_service | ERROR | bridge process crashed (restart #4)
+2026-05-23 17:13:20,157 | background_service | CRITICAL | bridge reached max restarts (3), not restarting. Manual intervention required.
+2026-05-23 17:13:20,157 | background_service | WARNING | Queue stalled for 1779536600.2s

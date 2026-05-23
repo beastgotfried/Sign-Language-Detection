@@ -1,0 +1,7 @@
+2026-05-23 17:13:36,964 | __mp_main__ | INFO | Core imports successful
+2026-05-23 17:13:36,973 | background_service | INFO | Bridge subprocess: Starting bridge consumer
+2026-05-23 17:13:36,974 | prediction_bridge | INFO | QueueConsumerThread initialized with timeout=0.1s
+2026-05-23 17:13:36,974 | prediction_bridge | INFO | PredictionBridge initialized
+2026-05-23 17:13:36,974 | prediction_bridge | INFO | Consumer loop started
+2026-05-23 17:13:36,974 | prediction_bridge | INFO | Queue consumer thread started
+2026-05-23 17:13:36,975 | prediction_bridge | INFO | PredictionBridge started

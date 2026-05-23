@@ -18,21 +18,10 @@ import threading
 import time
 from datetime import datetime
 from multiprocessing import Queue, Process, Manager
-from pathlib import Path
 from typing import Dict, Optional, Any
 
-# Get base directory
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s | %(name)s | %(levelname)s | %(message)s',
-    handlers=[
-        logging.FileHandler(BASE_DIR / "logs" / "signbridge.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+# Disable logging output (no file or console logging)
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 # Try to import psutil for enhanced process monitoring
@@ -89,6 +78,7 @@ class BackgroundServiceState:
         self.running = False
         self.inference_process: Optional[Process] = None
         self.bridge_process: Optional[Process] = None
+        self.manager: Optional[Manager] = None
         self.shared_queue: Optional[Queue] = None
         self.start_time: float = 0.0
         self.process_restarts: Dict[str, int] = {
@@ -262,7 +252,16 @@ class ProcessManager:
             
             bridge = PredictionBridge(queue)
             bridge.start()
-            bridge.consumer.run()  # Run consumer loop (blocking)
+            
+            # Keep the process alive while consumer thread runs
+            # The consumer is a daemon thread, so it will keep running
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                pass
+            finally:
+                bridge.stop()
             
         except Exception as e:
             logger.error(f"Bridge subprocess error: {e}", exc_info=True)
@@ -532,8 +531,8 @@ class BackgroundService:
         
         # Create manager and shared queue
         try:
-            manager = Manager()
-            self.state.shared_queue = manager.Queue()
+            self.state.manager = Manager()
+            self.state.shared_queue = self.state.manager.Queue()
             logger.info("Manager-backed Queue created (supports process sharing)")
         except Exception as e:
             logger.error(f"Failed to create manager queue: {e}")
@@ -612,9 +611,20 @@ class BackgroundService:
         self.process_manager.terminate_process(self.state.inference_process, "Inference")
         self.process_manager.terminate_process(self.state.bridge_process, "Bridge")
         
-        # Close queue
+        # Shutdown manager and queue
         if self.state.shared_queue:
-            self.state.shared_queue.close()
+            try:
+                self.state.shared_queue.close()
+            except Exception:
+                pass
+            self.state.shared_queue = None
+
+        if self.state.manager:
+            try:
+                self.state.manager.shutdown()
+            except Exception:
+                pass
+            self.state.manager = None
         
         logger.info("="*80)
         logger.info("Service stopped")

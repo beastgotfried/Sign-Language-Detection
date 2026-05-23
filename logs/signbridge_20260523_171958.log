@@ -1,0 +1,26 @@
+2026-05-23 17:20:00,367 | __mp_main__ | INFO | Core imports successful
+2026-05-23 17:20:00,378 | background_service | INFO | Inference subprocess: Starting inference loop
+2026-05-23 17:20:04,530 | background_service | ERROR | Inference subprocess error: X has 48 features, but RandomForestClassifier is expecting 23 features as input.
+Traceback (most recent call last):
+  File "C:\Users\Ankush Wadehra\Desktop\College\Learning\Sign-Language-Detection\src\background_service.py", line 248, in _run_inference_wrapper
+    run_webcam_inference(model, encoder, output_queue=queue)
+  File "C:\Users\Ankush Wadehra\Desktop\College\Learning\Sign-Language-Detection\src\phase4_inference.py", line 196, in run_webcam_inference
+    current_label, current_conf = predict_sign(model, encoder, feature_vector)
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ankush Wadehra\Desktop\College\Learning\Sign-Language-Detection\src\phase4_inference.py", line 56, in predict_sign
+    pred_id = model.predict(x)[0]
+              ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ankush Wadehra\AppData\Local\Programs\Python\Python311\Lib\site-packages\sklearn\ensemble\_forest.py", line 903, in predict
+    proba = self.predict_proba(X)
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ankush Wadehra\AppData\Local\Programs\Python\Python311\Lib\site-packages\sklearn\ensemble\_forest.py", line 945, in predict_proba
+    X = self._validate_X_predict(X)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ankush Wadehra\AppData\Local\Programs\Python\Python311\Lib\site-packages\sklearn\ensemble\_forest.py", line 637, in _validate_X_predict
+    X = validate_data(
+        ^^^^^^^^^^^^^^
+  File "C:\Users\Ankush Wadehra\AppData\Local\Programs\Python\Python311\Lib\site-packages\sklearn\utils\validation.py", line 2923, in validate_data
+    _check_n_features(_estimator, X, reset=reset)
+  File "C:\Users\Ankush Wadehra\AppData\Local\Programs\Python\Python311\Lib\site-packages\sklearn\utils\validation.py", line 2787, in _check_n_features
+    raise ValueError(
+ValueError: X has 48 features, but RandomForestClassifier is expecting 23 features as input.

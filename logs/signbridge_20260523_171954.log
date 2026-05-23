@@ -1,0 +1,46 @@
+2026-05-23 17:19:57,033 | __main__ | INFO | Core imports successful
+2026-05-23 17:19:57,034 | __main__ | INFO | SignBridgeApplication initialized
+2026-05-23 17:19:57,034 | __main__ | INFO | ================================================================================
+2026-05-23 17:19:57,034 | __main__ | INFO | SignBridge Application Starting
+2026-05-23 17:19:57,034 | __main__ | INFO | ================================================================================
+2026-05-23 17:19:57,034 | __main__ | INFO | Signal handlers registered
+2026-05-23 17:19:57,035 | __main__ | INFO | Starting BackgroundService...
+2026-05-23 17:19:57,035 | background_service | INFO | ProcessManager initialized
+2026-05-23 17:19:57,035 | background_service | INFO | BackgroundService initialized
+2026-05-23 17:19:57,036 | background_service | INFO | ================================================================================
+2026-05-23 17:19:57,036 | background_service | INFO | Starting SignBridge Background Service...
+2026-05-23 17:19:57,036 | background_service | INFO | ================================================================================
+2026-05-23 17:19:58,694 | background_service | INFO | Manager-backed Queue created (supports process sharing)
+2026-05-23 17:19:58,694 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:19:58,704 | background_service | INFO | Inference subprocess started (PID: 14476)
+2026-05-23 17:19:59,206 | background_service | INFO | Starting bridge subprocess...
+2026-05-23 17:19:59,216 | background_service | INFO | Bridge subprocess started (PID: 16956)
+2026-05-23 17:19:59,216 | background_service | INFO | HealthMonitor initialized
+2026-05-23 17:19:59,217 | background_service | INFO | Health monitor started
+2026-05-23 17:19:59,217 | background_service | INFO | LogAggregator initialized
+2026-05-23 17:19:59,219 | background_service | INFO | Log aggregator started (monitoring queue health)
+2026-05-23 17:19:59,220 | background_service | INFO | ================================================================================
+2026-05-23 17:19:59,222 | background_service | WARNING | Queue stalled for 1779536999.2s
+2026-05-23 17:19:59,222 | background_service | INFO | Service started successfully
+2026-05-23 17:19:59,222 | background_service | INFO | Press Ctrl+C to stop
+2026-05-23 17:19:59,223 | background_service | INFO | ================================================================================
+2026-05-23 17:19:59,223 | __main__ | INFO | BackgroundService started successfully
+2026-05-23 17:19:59,233 | __main__ | INFO | ================================================================================
+2026-05-23 17:19:59,234 | __main__ | INFO | Main process exited
+2026-05-23 17:20:09,226 | background_service | ERROR | inference process crashed (restart #1)
+2026-05-23 17:20:09,397 | background_service | INFO | Waiting 1s before restart...
+2026-05-23 17:20:10,397 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:20:10,409 | background_service | INFO | Inference subprocess started (PID: 512)
+2026-05-23 17:20:10,410 | background_service | INFO | inference restarted successfully
+2026-05-23 17:20:20,412 | background_service | ERROR | inference process crashed (restart #2)
+2026-05-23 17:20:20,446 | background_service | INFO | Waiting 2s before restart...
+2026-05-23 17:20:22,447 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:20:22,457 | background_service | INFO | Inference subprocess started (PID: 22612)
+2026-05-23 17:20:22,457 | background_service | INFO | inference restarted successfully
+2026-05-23 17:20:32,458 | background_service | ERROR | inference process crashed (restart #3)
+2026-05-23 17:20:32,458 | background_service | INFO | Waiting 4s before restart...
+2026-05-23 17:20:36,459 | background_service | INFO | Starting inference subprocess...
+2026-05-23 17:20:36,462 | background_service | INFO | Inference subprocess started (PID: 17908)
+2026-05-23 17:20:36,462 | background_service | INFO | inference restarted successfully
+2026-05-23 17:20:46,464 | background_service | ERROR | inference process crashed (restart #4)
+2026-05-23 17:20:46,464 | background_service | CRITICAL | inference reached max restarts (3), not restarting. Manual intervention required.
