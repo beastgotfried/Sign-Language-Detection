@@ -73,6 +73,14 @@ LOG_TO_FILE = True
 LOG_FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 LOG_FILE_NAME = "signbridge.log"
 
+# Background Service Health Monitoring
+HEALTH_CHECK_INTERVAL = 5              # seconds between health checks
+PROCESS_RESTART_LIMIT = 3              # max restarts before giving up
+RESTART_BACKOFF_SECONDS = 1            # initial backoff (exponential)
+QUEUE_STALL_TIMEOUT = 30               # seconds without activity before warning
+QUEUE_OVERFLOW_THRESHOLD = 100         # items in queue before warning
+PROCESS_SHUTDOWN_TIMEOUT = 5           # seconds to wait for graceful shutdown
+
 # Training defaults
 TRAIN_SPLIT_RATIO = 0.2
 RANDOM_STATE = 42
