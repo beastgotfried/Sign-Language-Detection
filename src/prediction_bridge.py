@@ -18,13 +18,6 @@ import time
 from queue import Queue, Empty
 from typing import Dict, Any, Optional, List
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s | %(name)s | %(levelname)s | %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 # Import config constants
 try:
     from config import (
@@ -35,34 +28,56 @@ try:
         QUEUE_TIMEOUT,
     )
 except ImportError as e:
-    logger.warning(f"Config import failed: {e}")
-    # Fallback defaults
-    CONFIDENCE_THRESHOLD = 0.75
-    BACKSPACE_TOKEN = "__BACKSPACE__"
-    COMMIT_TOKEN = "__COMMIT__"
-    GESTURE_TO_TEXT = {
-        'A': 'a', 'B': 'b', 'C': 'c', 'D': 'd', 'E': 'e',
-        'F': 'f', 'G': 'g', 'H': 'h', 'I': 'i', 'J': 'j',
-        'K': 'k', 'L': 'l', 'M': 'm', 'N': 'n', 'O': 'o',
-        'P': 'p', 'Q': 'q', 'R': 'r', 'S': 's', 'T': 't',
-        'U': 'u', 'V': 'v', 'W': 'w', 'X': 'x', 'Y': 'y', 'Z': 'z',
-    }
-    QUEUE_TIMEOUT = 0.1
+    # Will be set to defaults below
+    pass
 
-# Import optional feedback libraries
+# Import optional dependencies
 try:
     import pyttsx3
     TTS_AVAILABLE = True
 except ImportError:
     TTS_AVAILABLE = False
-    logger.debug("pyttsx3 not available - TTS disabled")
 
 try:
     from win10toast import ToastNotifier
     TOAST_AVAILABLE = True
 except ImportError:
     TOAST_AVAILABLE = False
+
+# Import UI automation
+try:
+    from ui_automation import send_to_ui
+    UI_AUTOMATION_AVAILABLE = True
+except ImportError:
+    UI_AUTOMATION_AVAILABLE = False
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(name)s | %(levelname)s | %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Set config defaults (fallback if import fails)
+CONFIDENCE_THRESHOLD = 0.75
+BACKSPACE_TOKEN = "__BACKSPACE__"
+COMMIT_TOKEN = "__COMMIT__"
+GESTURE_TO_TEXT = {
+    'A': 'a', 'B': 'b', 'C': 'c', 'D': 'd', 'E': 'e',
+    'F': 'f', 'G': 'g', 'H': 'h', 'I': 'i', 'J': 'j',
+    'K': 'k', 'L': 'l', 'M': 'm', 'N': 'n', 'O': 'o',
+    'P': 'p', 'Q': 'q', 'R': 'r', 'S': 's', 'T': 't',
+    'U': 'u', 'V': 'v', 'W': 'w', 'X': 'x', 'Y': 'y', 'Z': 'z',
+}
+QUEUE_TIMEOUT = 0.1
+
+# Log availability of optional features
+if not TTS_AVAILABLE:
+    logger.debug("pyttsx3 not available - TTS disabled")
+if not TOAST_AVAILABLE:
     logger.debug("win10toast not available - notifications disabled")
+if not UI_AUTOMATION_AVAILABLE:
+    logger.debug("ui_automation not available - output to file/log only")
 
 
 class BridgeState:
@@ -278,13 +293,12 @@ class PredictionBridge:
         }
         
         try:
-            # Import ui_automation dynamically to avoid circular imports
-            from ui_automation import send_to_ui
-            send_to_ui(command)
-            logger.debug(f"Output sent: {action} = {content}")
-        except ImportError:
-            logger.warning("ui_automation module not available - output not sent")
-            logger.info(f"[OUTPUT] {action}: {content}")
+            if UI_AUTOMATION_AVAILABLE:
+                send_to_ui(command)
+                logger.debug(f"Output sent: {action} = {content}")
+            else:
+                logger.warning("ui_automation module not available - output not sent")
+                logger.info(f"[OUTPUT] {action}: {content}")
         except Exception as e:
             logger.error(f"Failed to send output: {e}")
     

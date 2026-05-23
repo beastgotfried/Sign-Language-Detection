@@ -1,3 +1,12 @@
+Main Process
+├── subprocess: phase4_inference.py   (ML model, camera)
+├── subprocess: prediction_bridge.py  (sends to UI)
+├── thread: HealthMonitor             (watches both subprocesses)
+└── thread: LogAggregator             (reads their stderr)
+
+
+
+
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        BACKGROUND SERVICE (Step 3)                          │
 └─────────────────────────────────────────────────────────────────────────────┘

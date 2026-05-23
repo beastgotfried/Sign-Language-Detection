@@ -13,12 +13,11 @@ Orchestrates and manages the entire inference pipeline:
 import logging
 import multiprocessing
 import signal
-import subprocess
 import sys
 import threading
 import time
 from datetime import datetime
-from multiprocessing import Queue, Process
+from multiprocessing import Queue, Process, Manager
 from pathlib import Path
 from typing import Dict, Optional, Any
 
@@ -64,6 +63,21 @@ except ImportError as e:
     QUEUE_OVERFLOW_THRESHOLD = 100
     PROCESS_SHUTDOWN_TIMEOUT = 5
 
+# Import subprocess modules
+try:
+    from phase4_inference import run_webcam_inference, load_artifacts
+    INFERENCE_AVAILABLE = True
+except ImportError:
+    INFERENCE_AVAILABLE = False
+    logger.warning("phase4_inference module not available")
+
+try:
+    from prediction_bridge import PredictionBridge
+    BRIDGE_AVAILABLE = True
+except ImportError:
+    BRIDGE_AVAILABLE = False
+    logger.warning("prediction_bridge module not available")
+
 
 class BackgroundServiceState:
     """
@@ -73,8 +87,8 @@ class BackgroundServiceState:
     def __init__(self):
         """Initialize service state"""
         self.running = False
-        self.inference_process: Optional[subprocess.Popen] = None
-        self.bridge_process: Optional[subprocess.Popen] = None
+        self.inference_process: Optional[Process] = None
+        self.bridge_process: Optional[Process] = None
         self.shared_queue: Optional[Queue] = None
         self.start_time: float = 0.0
         self.process_restarts: Dict[str, int] = {
@@ -109,8 +123,8 @@ class BackgroundServiceState:
         if process is None:
             return False
         
-        # Check if process has terminated
-        return process.poll() is None
+        # Check if process is still alive
+        return process.is_alive()
     
     def get_uptime(self) -> float:
         """Get service uptime in seconds"""
@@ -140,6 +154,8 @@ class BackgroundServiceState:
 class ProcessManager:
     """
     Create and manage subprocesses for inference and bridge.
+    
+    Uses multiprocessing.Process to enable natural queue sharing.
     """
     
     def __init__(self, state: BackgroundServiceState):
@@ -152,7 +168,7 @@ class ProcessManager:
         self.state = state
         logger.info("ProcessManager initialized")
     
-    def start_inference(self, queue: Queue) -> subprocess.Popen:
+    def start_inference(self, queue: Queue) -> Process:
         """
         Start phase4_inference.py subprocess.
         
@@ -160,20 +176,19 @@ class ProcessManager:
             queue: Multiprocessing Queue to pass to subprocess
         
         Returns:
-            Popen process handle
+            Process handle
         """
         try:
             logger.info("Starting inference subprocess...")
             
-            # Spawn subprocess
-            process = subprocess.Popen(
-                [sys.executable, str(BASE_DIR / "src" / "phase4_inference.py"), "--mode", "camera"],
-                cwd=str(BASE_DIR),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1
+            # Create process that runs inference with queue
+            process = Process(
+                target=self._run_inference_wrapper,
+                args=(queue,),
+                name="InferenceProcess"
             )
+            process.daemon = False
+            process.start()
             
             logger.info(f"Inference subprocess started (PID: {process.pid})")
             return process
@@ -182,7 +197,7 @@ class ProcessManager:
             logger.error(f"Failed to start inference subprocess: {e}", exc_info=True)
             return None
     
-    def start_bridge(self, queue: Queue) -> subprocess.Popen:
+    def start_bridge(self, queue: Queue) -> Process:
         """
         Start prediction_bridge.py subprocess.
         
@@ -190,20 +205,19 @@ class ProcessManager:
             queue: Multiprocessing Queue to pass to subprocess
         
         Returns:
-            Popen process handle
+            Process handle
         """
         try:
             logger.info("Starting bridge subprocess...")
             
-            # Spawn subprocess
-            process = subprocess.Popen(
-                [sys.executable, str(BASE_DIR / "src" / "prediction_bridge.py")],
-                cwd=str(BASE_DIR),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1
+            # Create process that runs bridge with queue
+            process = Process(
+                target=self._run_bridge_wrapper,
+                args=(queue,),
+                name="BridgeProcess"
             )
+            process.daemon = False
+            process.start()
             
             logger.info(f"Bridge subprocess started (PID: {process.pid})")
             return process
@@ -212,12 +226,53 @@ class ProcessManager:
             logger.error(f"Failed to start bridge subprocess: {e}", exc_info=True)
             return None
     
-    def terminate_process(self, process: subprocess.Popen, name: str, timeout: float = PROCESS_SHUTDOWN_TIMEOUT):
+    @staticmethod
+    def _run_inference_wrapper(queue: Queue):
+        """
+        Wrapper to run inference in subprocess with queue.
+        
+        Args:
+            queue: Shared queue for output
+        """
+        try:
+            logger.info("Inference subprocess: Starting inference loop")
+            if not INFERENCE_AVAILABLE:
+                logger.error("phase4_inference not available")
+                return
+            
+            model, encoder = load_artifacts()
+            run_webcam_inference(model, encoder, output_queue=queue)
+            
+        except Exception as e:
+            logger.error(f"Inference subprocess error: {e}", exc_info=True)
+    
+    @staticmethod
+    def _run_bridge_wrapper(queue: Queue):
+        """
+        Wrapper to run bridge in subprocess with queue.
+        
+        Args:
+            queue: Shared queue for input
+        """
+        try:
+            logger.info("Bridge subprocess: Starting bridge consumer")
+            if not BRIDGE_AVAILABLE:
+                logger.error("prediction_bridge not available")
+                return
+            
+            bridge = PredictionBridge(queue)
+            bridge.start()
+            bridge.consumer.run()  # Run consumer loop (blocking)
+            
+        except Exception as e:
+            logger.error(f"Bridge subprocess error: {e}", exc_info=True)
+    
+    def terminate_process(self, process: Process, name: str, timeout: float = PROCESS_SHUTDOWN_TIMEOUT):
         """
         Gracefully terminate a subprocess.
         
         Args:
-            process: Popen process handle
+            process: Process handle
             name: Process name for logging
             timeout: Seconds to wait before force kill
         """
@@ -227,29 +282,30 @@ class ProcessManager:
         try:
             logger.info(f"Terminating {name} (PID: {process.pid})...")
             
-            # Send SIGTERM (graceful shutdown)
+            # Send terminate signal (graceful shutdown)
             process.terminate()
             
             # Wait for graceful shutdown
-            try:
-                process.wait(timeout=timeout)
-                logger.info(f"{name} terminated gracefully")
-            except subprocess.TimeoutExpired:
+            process.join(timeout=timeout)
+            
+            if process.is_alive():
                 # Force kill
                 logger.warning(f"{name} did not terminate gracefully, force killing...")
                 process.kill()
-                process.wait()
+                process.join()
                 logger.info(f"{name} force killed")
+            else:
+                logger.info(f"{name} terminated gracefully")
                 
         except Exception as e:
             logger.error(f"Error terminating {name}: {e}")
     
-    def get_process_status(self, process: subprocess.Popen, name: str) -> str:
+    def get_process_status(self, process: Process, name: str) -> str:
         """
         Get process status.
         
         Args:
-            process: Popen process handle
+            process: Process handle
             name: Process name for logging
         
         Returns:
@@ -258,15 +314,15 @@ class ProcessManager:
         if process is None:
             return 'stopped'
         
-        poll_result = process.poll()
-        
-        if poll_result is None:
+        if process.is_alive():
             return 'running'
-        elif poll_result == 0:
-            return 'stopped'
         else:
-            logger.warning(f"{name} crashed with exit code {poll_result}")
-            return 'crashed'
+            exit_code = process.exitcode
+            if exit_code == 0:
+                return 'stopped'
+            else:
+                logger.warning(f"{name} crashed with exit code {exit_code}")
+                return 'crashed'
 
 
 class HealthMonitor(threading.Thread):
@@ -274,6 +330,7 @@ class HealthMonitor(threading.Thread):
     Monitor subprocess health and restart if needed.
     
     Runs in background thread, checks health every 5 seconds.
+    Uses multiprocessing.Process which has is_alive() and exitcode attributes.
     """
     
     def __init__(self, state: BackgroundServiceState, process_manager: ProcessManager):
@@ -392,7 +449,8 @@ class LogAggregator(threading.Thread):
     """
     Aggregate logs from all components.
     
-    Runs in background thread, collects logs from subprocesses.
+    With multiprocessing.Process, subprocesses share logging configuration
+    so this thread primarily monitors queue and service health.
     """
     
     def __init__(self, state: BackgroundServiceState):
@@ -410,43 +468,27 @@ class LogAggregator(threading.Thread):
     
     def run(self):
         """Main log aggregation loop"""
-        logger.info("Log aggregator started")
+        logger.info("Log aggregator started (monitoring queue health)")
         self.running = True
         
         while self.running and self.state.running:
             try:
-                # Read logs from inference subprocess stderr
-                if self.state.inference_process and self.state.inference_process.stderr:
-                    self._read_process_logs(self.state.inference_process, "INFERENCE")
+                # Get current stats for logging
+                if self.state.last_health_check > 0:
+                    stats = self.state.get_stats()
+                    queue_size = stats.get('queue_size', 0)
+                    
+                    # Log high queue size warnings
+                    if queue_size > QUEUE_OVERFLOW_THRESHOLD:
+                        logger.warning(f"Queue backlog: {queue_size} items")
                 
-                # Read logs from bridge subprocess stderr
-                if self.state.bridge_process and self.state.bridge_process.stderr:
-                    self._read_process_logs(self.state.bridge_process, "BRIDGE")
-                
-                time.sleep(0.1)
+                time.sleep(5)  # Check every 5 seconds
                 
             except Exception as e:
                 logger.error(f"Log aggregator error: {e}", exc_info=True)
                 time.sleep(1)
         
         logger.info("Log aggregator stopped")
-    
-    def _read_process_logs(self, process: subprocess.Popen, component: str):
-        """
-        Read available logs from subprocess.
-        
-        Args:
-            process: Popen process handle
-            component: Component name for logging prefix
-        """
-        try:
-            # Non-blocking read from stderr
-            if process.stderr:
-                line = process.stderr.readline()
-                if line:
-                    logger.info(f"[{component}] {line.strip()}")
-        except Exception as e:
-            logger.debug(f"Error reading {component} logs: {e}")
     
     def stop(self):
         """Stop log aggregator"""
@@ -488,9 +530,15 @@ class BackgroundService:
         self.state.running = True
         self.state.start_time = time.time()
         
-        # Create shared queue
-        self.state.shared_queue = Queue()
-        logger.info("Shared Queue created")
+        # Create manager and shared queue
+        try:
+            manager = Manager()
+            self.state.shared_queue = manager.Queue()
+            logger.info("Manager-backed Queue created (supports process sharing)")
+        except Exception as e:
+            logger.error(f"Failed to create manager queue: {e}")
+            self.stop()
+            return
         
         # Start inference subprocess
         self.state.inference_process = self.process_manager.start_inference(self.state.shared_queue)
