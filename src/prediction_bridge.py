@@ -1,15 +1,22 @@
 """
-Prediction Bridge - Part 1: Queue Consumer Thread
+Prediction Bridge
 
-Listens to Queue from phase4_inference.py and routes events for processing.
-Implements non-blocking consumer with timeout-based polling.
+Consumes predictions from phase4_inference.py queue and converts them to text output.
+
+Parts:
+1. Queue Consumer Thread - Non-blocking listener (DONE)
+2. Bridge State Management - Buffer and history tracking (DONE)
+3. Gesture Mapping & Prediction Processing - Map gestures to text
+4. Token Processing - Handle BACKSPACE and COMMIT tokens
+5. Output Handler - Send commands to UI automation
+6. Feedback Systems - TTS and notifications (optional)
 """
 
 import logging
 import threading
 import time
 from queue import Queue, Empty
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 # Configure logging
 logging.basicConfig(
@@ -18,16 +25,311 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Import config constants
+try:
+    from config import (
+        CONFIDENCE_THRESHOLD,
+        BACKSPACE_TOKEN,
+        COMMIT_TOKEN,
+        GESTURE_TO_TEXT,
+        QUEUE_TIMEOUT,
+    )
+except ImportError as e:
+    logger.warning(f"Config import failed: {e}")
+    # Fallback defaults
+    CONFIDENCE_THRESHOLD = 0.75
+    BACKSPACE_TOKEN = "__BACKSPACE__"
+    COMMIT_TOKEN = "__COMMIT__"
+    GESTURE_TO_TEXT = {
+        'A': 'a', 'B': 'b', 'C': 'c', 'D': 'd', 'E': 'e',
+        'F': 'f', 'G': 'g', 'H': 'h', 'I': 'i', 'J': 'j',
+        'K': 'k', 'L': 'l', 'M': 'm', 'N': 'n', 'O': 'o',
+        'P': 'p', 'Q': 'q', 'R': 'r', 'S': 's', 'T': 't',
+        'U': 'u', 'V': 'v', 'W': 'w', 'X': 'x', 'Y': 'y', 'Z': 'z',
+    }
+    QUEUE_TIMEOUT = 0.1
+
+# Import optional feedback libraries
+try:
+    import pyttsx3
+    TTS_AVAILABLE = True
+except ImportError:
+    TTS_AVAILABLE = False
+    logger.debug("pyttsx3 not available - TTS disabled")
+
+try:
+    from win10toast import ToastNotifier
+    TOAST_AVAILABLE = True
+except ImportError:
+    TOAST_AVAILABLE = False
+    logger.debug("win10toast not available - notifications disabled")
+
+
+class BridgeState:
+    """
+    State management for prediction bridge.
+    
+    Tracks:
+    - Current word being typed (buffer)
+    - All emitted text (history)
+    - Last gesture for deduplication
+    - Timing for rate limiting
+    """
+    
+    def __init__(self):
+        """Initialize bridge state with empty buffers"""
+        self.current_buffer: str = ""
+        self.output_history: List[str] = []
+        self.last_label: Optional[str] = None
+        self.last_emission_time: float = 0.0
+        self.pending_space: bool = False
+        
+        logger.debug("BridgeState initialized")
+    
+    def add_char(self, char: str) -> None:
+        """Add character to current buffer"""
+        self.current_buffer += char
+        logger.debug(f"Buffer updated: '{self.current_buffer}'")
+    
+    def emit_word(self, add_space: bool = True) -> str:
+        """Emit current buffer as a word and clear buffer"""
+        if not self.current_buffer:
+            logger.debug("Buffer empty, nothing to emit")
+            return ""
+        
+        word = self.current_buffer
+        if add_space:
+            word += " "
+        
+        self.output_history.append(word)
+        self.current_buffer = ""
+        
+        logger.info(f"Word emitted: '{word.strip()}' | History: {len(self.output_history)} words")
+        return word
+    
+    def backspace(self, count: int = 1) -> None:
+        """Delete N characters from current buffer"""
+        if not self.current_buffer:
+            logger.debug("Buffer empty, cannot backspace")
+            return
+        
+        deleted = self.current_buffer[-count:] if count <= len(self.current_buffer) else self.current_buffer
+        self.current_buffer = self.current_buffer[:-count]
+        
+        logger.debug(f"Backspace {count} chars: deleted='{deleted}' | Buffer: '{self.current_buffer}'")
+    
+    def get_history(self) -> List[str]:
+        """Get entire output history"""
+        return self.output_history.copy()
+    
+    def get_full_output(self) -> str:
+        """Get complete output as single string"""
+        full = "".join(self.output_history) + self.current_buffer
+        return full
+    
+    def reset(self) -> None:
+        """Clear all state"""
+        self.current_buffer = ""
+        self.output_history = []
+        self.last_label = None
+        self.last_emission_time = 0.0
+        self.pending_space = False
+        
+        logger.info("BridgeState reset")
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get diagnostic statistics"""
+        return {
+            "buffer_length": len(self.current_buffer),
+            "buffer_content": self.current_buffer,
+            "history_length": len(self.output_history),
+            "total_output": self.get_full_output(),
+            "last_label": self.last_label,
+            "last_emission_time": self.last_emission_time,
+        }
+
+
+class PredictionBridge:
+    """
+    Main bridge class that connects inference to UI automation.
+    
+    Responsibilities:
+    - Consume predictions from queue
+    - Map gestures to text
+    - Manage state and buffering
+    - Process tokens (backspace, commit)
+    - Send output to UI layer
+    - Provide feedback (TTS, notifications)
+    """
+    
+    def __init__(self, input_queue: Queue, gesture_map: Optional[Dict[str, str]] = None):
+        """
+        Initialize prediction bridge.
+        
+        Args:
+            input_queue: Queue from phase4_inference
+            gesture_map: Custom gesture to text mapping (uses GESTURE_TO_TEXT if not provided)
+        """
+        self.input_queue = input_queue
+        self.gesture_map = gesture_map or GESTURE_TO_TEXT
+        self.state = BridgeState()
+        self.consumer = QueueConsumerThread(input_queue, queue_timeout=QUEUE_TIMEOUT)
+        
+        # Register handlers with consumer
+        self.consumer.on_prediction = self._process_prediction
+        self.consumer.on_token = self._process_token
+        
+        logger.info("PredictionBridge initialized")
+    
+    def start(self):
+        """Start consuming events from queue"""
+        self.consumer.start()
+        logger.info("PredictionBridge started")
+    
+    def stop(self):
+        """Stop consuming events"""
+        self.consumer.stop()
+        logger.info("PredictionBridge stopped")
+    
+    # PART 3: Gesture Mapping & Prediction Processing
+    def _process_prediction(self, event: Dict[str, Any]):
+        """
+        Process gesture prediction from inference.
+        
+        Flow:
+        1. Extract and validate confidence
+        2. Deduplicate rapid predictions
+        3. Map gesture label to text
+        4. Add to buffer
+        5. Send output
+        6. Provide feedback
+        """
+        label = event.get('label', '?')
+        confidence = event.get('confidence', 0.0)
+        timestamp = event.get('timestamp', time.time())
+        
+        # Step 1: Validate confidence
+        if confidence < CONFIDENCE_THRESHOLD:
+            logger.debug(f"Skipping low confidence: {label} ({confidence:.2f})")
+            return
+        
+        # Step 2: Deduplicate (skip if same label within 100ms)
+        time_since_last = timestamp - self.state.last_emission_time
+        if label == self.state.last_label and time_since_last < 0.1:
+            logger.debug(f"Duplicate detected: {label}")
+            return
+        
+        # Step 3: Map gesture to text
+        text = self.gesture_map.get(label, "?")
+        
+        # Step 4: Add to buffer
+        self.state.add_char(text)
+        self.state.last_label = label
+        self.state.last_emission_time = timestamp
+        
+        # Step 5: Send output
+        self._send_output(text, 'type')
+        
+        # Step 6: Feedback
+        self._speak_prediction(label)
+        self._show_notification(f"Predicted: {label}")
+        
+        logger.info(f"Prediction processed: {label} → {text}")
+    
+    # PART 4: Token Processing
+    def _process_token(self, event: Dict[str, Any]):
+        """
+        Process special tokens from inference.
+        
+        BACKSPACE_TOKEN: Delete last character
+        COMMIT_TOKEN: Emit word with space, ready for next word
+        """
+        token = event.get('token', '?')
+        timestamp = event.get('timestamp', time.time())
+        
+        if token == BACKSPACE_TOKEN:
+            if self.state.current_buffer:
+                self.state.backspace(count=1)
+                self._send_output("backspace", 'action')
+            logger.info(f"Backspace processed. Buffer: {self.state.current_buffer}")
+        
+        elif token == COMMIT_TOKEN:
+            emitted = self.state.emit_word(add_space=True)
+            if emitted:
+                self._send_output(emitted, 'type')
+            logger.info(f"Commit processed. Emitted: {emitted.strip()}")
+            self._show_notification(f"Word: {emitted.strip()}")
+    
+    # PART 5: Output Handler
+    def _send_output(self, content: str, action: str):
+        """
+        Send text/action to UI automation layer.
+        
+        Formats command and routes to ui_automation module.
+        
+        Args:
+            content: Text to type or action to perform
+            action: 'type', 'backspace', 'commit'
+        """
+        command = {
+            'action': action,
+            'content': content,
+            'timestamp': time.time()
+        }
+        
+        try:
+            # Import ui_automation dynamically to avoid circular imports
+            from ui_automation import send_to_ui
+            send_to_ui(command)
+            logger.debug(f"Output sent: {action} = {content}")
+        except ImportError:
+            logger.warning("ui_automation module not available - output not sent")
+            logger.info(f"[OUTPUT] {action}: {content}")
+        except Exception as e:
+            logger.error(f"Failed to send output: {e}")
+    
+    # PART 6: Feedback Systems
+    def _speak_prediction(self, label: str):
+        """
+        Optional: Speak prediction aloud using TTS.
+        
+        Args:
+            label: Gesture label to speak
+        """
+        if not TTS_AVAILABLE:
+            return
+        
+        try:
+            engine = pyttsx3.init()
+            engine.say(label)
+            engine.runAndWait()
+            logger.debug(f"Spoke: {label}")
+        except Exception as e:
+            logger.warning(f"TTS failed: {e}")
+    
+    def _show_notification(self, message: str):
+        """
+        Optional: Show Windows notification.
+        
+        Args:
+            message: Notification message
+        """
+        if not TOAST_AVAILABLE:
+            return
+        
+        try:
+            notifier = ToastNotifier()
+            notifier.show_toast("SignBridge", message, duration=1)
+            logger.debug(f"Notification: {message}")
+        except Exception as e:
+            logger.warning(f"Notification failed: {e}")
+
 
 class QueueConsumerThread:
     """
     Non-blocking queue consumer that listens to predictions from phase4_inference.
     
-    Pattern:
-    - Runs in background thread (daemon mode)
-    - Non-blocking with configurable timeout
-    - Routes events to appropriate handlers
-    - Graceful shutdown support
+    Runs in background thread with timeout-based polling.
     """
     
     def __init__(self, input_queue: Queue, queue_timeout: float = 0.1):
@@ -35,13 +337,17 @@ class QueueConsumerThread:
         Initialize queue consumer.
         
         Args:
-            input_queue: Queue from phase4_inference containing prediction events
-            queue_timeout: Timeout for Queue.get() in seconds (default 0.1s)
+            input_queue: Queue from phase4_inference
+            queue_timeout: Timeout for Queue.get() in seconds
         """
         self.input_queue = input_queue
         self.queue_timeout = queue_timeout
         self.running = False
         self.thread = None
+        
+        # Handlers can be set by PredictionBridge
+        self.on_prediction = None
+        self.on_token = None
         
         logger.info(f"QueueConsumerThread initialized with timeout={queue_timeout}s")
     
@@ -69,7 +375,6 @@ class QueueConsumerThread:
         logger.info("Stopping queue consumer thread...")
         self.running = False
         
-        # Wait for thread to finish (up to 5 seconds)
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=5.0)
             if self.thread.is_alive():
@@ -78,105 +383,36 @@ class QueueConsumerThread:
                 logger.info("Consumer thread stopped")
     
     def _consume_loop(self):
-        """
-        Main consumer loop - continuously checks queue with timeout.
-        
-        Flow:
-        1. Call Queue.get(timeout=X) - blocks for X seconds max
-        2. If Empty exception raised - timeout occurred, loop continues
-        3. Process event via _handle_event()
-        4. Check self.running flag to allow graceful shutdown
-        """
+        """Main consumer loop - continuously checks queue with timeout"""
         logger.info("Consumer loop started")
         
         while self.running:
             try:
-                # Non-blocking get with timeout
                 event = self.input_queue.get(timeout=self.queue_timeout)
-                
-                # Successfully received event
                 logger.debug(f"Event received: type={event.get('type')}")
                 self._handle_event(event)
                 
             except Empty:
-                # No event within timeout - continue loop
-                # This allows checking self.running flag periodically
                 continue
-                
             except Exception as e:
-                # Unexpected error - log and continue
-                logger.error(f"Unexpected error in consumer loop: {e}", exc_info=True)
+                logger.error(f"Consumer error: {e}", exc_info=True)
                 continue
         
         logger.info("Consumer loop stopped")
     
     def _handle_event(self, event: Dict[str, Any]):
-        """
-        Route event to appropriate handler based on type.
-        
-        Event types:
-        - 'prediction': gesture label with confidence
-        - 'token': special token (BACKSPACE_TOKEN, COMMIT_TOKEN)
-        
-        Args:
-            event: Dictionary with 'type' and event-specific fields
-        """
+        """Route event to appropriate handler"""
         event_type = event.get('type')
         
-        if event_type == 'prediction':
-            self._handle_prediction(event)
-            
-        elif event_type == 'token':
-            self._handle_token(event)
-            
+        if event_type == 'prediction' and self.on_prediction:
+            self.on_prediction(event)
+        elif event_type == 'token' and self.on_token:
+            self.on_token(event)
         else:
-            logger.warning(f"Unknown event type: {event_type}")
-    
-    def _handle_prediction(self, event: Dict[str, Any]):
-        """
-        Handle prediction event from inference.
-        
-        Expected fields:
-        - label: gesture label (str)
-        - confidence: confidence score (float)
-        - timestamp: event timestamp (float)
-        
-        Part 2 will implement actual processing here.
-        """
-        label = event.get('label', '?')
-        confidence = event.get('confidence', 0.0)
-        timestamp = event.get('timestamp', time.time())
-        
-        logger.info(f"Prediction: label={label}, conf={confidence:.2f}, time={timestamp}")
-        
-        # TODO: Part 2 - Process prediction
-        # - Validate confidence threshold
-        # - Deduplicate
-        # - Map gesture to text
-        # - Add to buffer
-        # - Send output
-    
-    def _handle_token(self, event: Dict[str, Any]):
-        """
-        Handle token event (BACKSPACE_TOKEN, COMMIT_TOKEN).
-        
-        Expected fields:
-        - token: special token string (str)
-        - timestamp: event timestamp (float)
-        
-        Part 4 will implement actual processing here.
-        """
-        token = event.get('token', '?')
-        timestamp = event.get('timestamp', time.time())
-        
-        logger.info(f"Token: {token}, time={timestamp}")
-        
-        # TODO: Part 4 - Process token
-        # - BACKSPACE_TOKEN: delete from buffer
-        # - COMMIT_TOKEN: emit word and add space
+            logger.warning(f"Unhandled event type: {event_type}")
     
     def get_queue_size(self) -> int:
-        """Get current queue size (for diagnostics)"""
+        """Get current queue size"""
         return self.input_queue.qsize()
     
     def is_running(self) -> bool:
@@ -186,38 +422,77 @@ class QueueConsumerThread:
 
 def main():
     """
-    Standalone test: consume predictions from a test queue.
+    Standalone test: Complete prediction bridge with all parts.
     
-    For testing Part 1 only.
+    Tests:
+    1. BridgeState operations
+    2. Queue consumer thread
+    3. Prediction processing (Part 3)
+    4. Token processing (Part 4)
+    5. Output handling (Part 5)
     """
-    # Create test queue and consumer
+    print("\n" + "="*80)
+    print("PREDICTION BRIDGE - COMPLETE IMPLEMENTATION TEST")
+    print("="*80 + "\n")
+    
+    # Test 1: BridgeState
+    print("[TEST 1] BridgeState Operations")
+    print("-" * 80)
+    
+    state = BridgeState()
+    for char in 'hello':
+        state.add_char(char)
+    print(f"Buffer: '{state.current_buffer}'")
+    
+    emitted = state.emit_word(add_space=True)
+    print(f"Emitted: '{emitted}'")
+    print(f"History: {state.output_history}")
+    print()
+    
+    # Test 2: Prediction Bridge with Queue
+    print("[TEST 2] Full Prediction Bridge with Queue")
+    print("-" * 80)
+    
     test_queue = Queue()
-    consumer = QueueConsumerThread(test_queue, queue_timeout=0.1)
+    bridge = PredictionBridge(test_queue)
     
-    logger.info("Starting queue consumer test...")
-    consumer.start()
+    print("Starting bridge...")
+    bridge.start()
     
-    # Simulate events from inference
+    # Test events
     test_events = [
         {'type': 'prediction', 'label': 'A', 'confidence': 0.92, 'timestamp': time.time()},
         {'type': 'prediction', 'label': 'B', 'confidence': 0.88, 'timestamp': time.time()},
-        {'type': 'token', 'token': '__COMMIT__', 'timestamp': time.time()},
+        {'type': 'token', 'token': COMMIT_TOKEN, 'timestamp': time.time()},
         {'type': 'prediction', 'label': 'C', 'confidence': 0.95, 'timestamp': time.time()},
+        {'type': 'token', 'token': BACKSPACE_TOKEN, 'timestamp': time.time()},
+        {'type': 'prediction', 'label': 'D', 'confidence': 0.91, 'timestamp': time.time()},
+        {'type': 'token', 'token': COMMIT_TOKEN, 'timestamp': time.time()},
     ]
     
-    # Put test events into queue
-    for event in test_events:
+    print("\nSending test events...")
+    for i, event in enumerate(test_events):
+        event_label = event.get('label', event.get('token', 'unknown'))
+        print(f"  Event {i+1}: {event['type']:11} = {event_label}")
         test_queue.put(event)
-        time.sleep(0.2)  # Small delay between events
+        time.sleep(0.15)
     
-    # Let consumer process for a bit
-    time.sleep(1.0)
+    print("\nProcessing...")
+    time.sleep(1.5)
     
-    logger.info(f"Queue size: {consumer.get_queue_size()}")
-    logger.info("Stopping consumer...")
-    consumer.stop()
+    print("\nFinal state:")
+    stats = bridge.state.get_stats()
+    for key, value in stats.items():
+        print(f"  {key}: {value}")
     
-    logger.info("Test complete")
+    print(f"\nQueue size: {bridge.consumer.get_queue_size()}")
+    
+    print("\nStopping bridge...")
+    bridge.stop()
+    
+    print("\n" + "="*80)
+    print("Test complete!")
+    print("="*80 + "\n")
 
 
 if __name__ == "__main__":

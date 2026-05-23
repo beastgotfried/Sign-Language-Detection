@@ -56,6 +56,17 @@ BACKSPACE_TOKEN = "__BACKSPACE__"
 COMMIT_TOKEN = "__COMMIT__"
 QUEUE_TIMEOUT = 1.0
 
+# Gesture to Text Mapping
+GESTURE_TO_TEXT = {
+    'A': 'a', 'B': 'b', 'C': 'c', 'D': 'd', 'E': 'e',
+    'F': 'f', 'G': 'g', 'H': 'h', 'I': 'i', 'J': 'j',
+    'K': 'k', 'L': 'l', 'M': 'm', 'N': 'n', 'O': 'o',
+    'P': 'p', 'Q': 'q', 'R': 'r', 'S': 's', 'T': 't',
+    'U': 'u', 'V': 'v', 'W': 'w', 'X': 'x', 'Y': 'y', 'Z': 'z',
+    'HELLO': 'hello',
+    'THANK_YOU': 'thank you',
+}
+
 # Logging
 LOG_LEVEL = "INFO"
 LOG_TO_FILE = True
