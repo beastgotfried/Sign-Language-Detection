@@ -353,13 +353,7 @@ sign-language-recognition/
   - Model inference: 1-2ms
   - Visualization: 5-10ms
 
-### Model Details
-- **Classifier**: Random Forest
-- **Trees**: 100
-- **Max Depth**: 15
-- **Input Features**: 48 (24 per hand)
-- **Model Size**: ~500KB - 2MB
-- **Training Time**: 1-10 seconds (depending on data)
+
 
 
 ##  Recommended Workflow
